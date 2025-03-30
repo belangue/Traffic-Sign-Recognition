@@ -3,46 +3,39 @@ import numpy as np
 import os
 import sys
 import tensorflow as tf
-
 from sklearn.model_selection import train_test_split
 
-EPOCHS = 10
-IMG_WIDTH = 30
-IMG_HEIGHT = 30
+# Constants
+EPOCHS = 15
+IMG_WIDTH = 32
+IMG_HEIGHT = 32
 NUM_CATEGORIES = 43
-TEST_SIZE = 0.4
-
+TEST_SIZE = 0.2  # Reduced test size for better training
 
 def main():
-
     # Check command-line arguments
     if len(sys.argv) not in [2, 3]:
         sys.exit("Usage: python traffic.py data_directory [model.h5]")
 
-    # Get image arrays and labels for all image files
+    # Load image arrays and labels
     images, labels = load_data(sys.argv[1])
 
     # Split data into training and testing sets
-    labels = tf.keras.utils.to_categorical(labels)
+    labels = tf.keras.utils.to_categorical(labels, num_classes=NUM_CATEGORIES)
     x_train, x_test, y_train, y_test = train_test_split(
-        np.array(images), np.array(labels), test_size=TEST_SIZE
+        np.array(images), np.array(labels), test_size=TEST_SIZE, random_state=42
     )
 
     # Get a compiled neural network
     model = get_model()
 
     # Fit model on training data
-    model.fit(x_train, y_train, epochs=EPOCHS)
-
-    # Evaluate neural network performance
-    model.evaluate(x_test,  y_test, verbose=2)
+    model.fit(x_train, y_train, epochs=EPOCHS, validation_data=(x_test, y_test), verbose=1)
 
     # Save model to file
-    if len(sys.argv) == 3:
-        filename = sys.argv[2]
-        model.save(filename)
-        print(f"Model saved to {filename}.")
-
+    filename = sys.argv[2] if len(sys.argv) == 3 else 'best_model.h5'
+    model.save(filename)
+    print(f"Model saved to {filename}.")
 
 def load_data(data_dir):
     """
@@ -62,7 +55,6 @@ def load_data(data_dir):
         # Loop through each image in the category folder
         for image_file in os.listdir(category_dir):
             image_path = os.path.join(category_dir, image_file)
-            
             try:
                 # Read and resize the image
                 image = cv2.imread(image_path)
@@ -83,16 +75,13 @@ def load_data(data_dir):
                 
     return (images, labels)
 
-
 def get_model():
     """
     Returns a compiled convolutional neural network model.
     """
     model = tf.keras.models.Sequential([
         # Convolutional layers
-        tf.keras.layers.Conv2D(
-            32, (3, 3), activation="relu", input_shape=(IMG_WIDTH, IMG_HEIGHT, 3)
-        ),
+        tf.keras.layers.Conv2D(32, (3, 3), activation="relu", input_shape=(IMG_WIDTH, IMG_HEIGHT, 3)),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
         
         tf.keras.layers.Conv2D(64, (3, 3), activation="relu"),
@@ -123,3 +112,6 @@ def get_model():
     )
     
     return model
+
+if _name_ == "_main_":
+    main()

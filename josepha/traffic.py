@@ -5,106 +5,113 @@ import sys
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
-# Constants
 EPOCHS = 15
 IMG_WIDTH = 32
 IMG_HEIGHT = 32
 NUM_CATEGORIES = 43
-TEST_SIZE = 0.2  # Reduced test size for better training
+TEST_SIZE = 0.2
 
 def main():
-    # Check command-line arguments
     if len(sys.argv) not in [2, 3]:
         sys.exit("Usage: python traffic.py data_directory [model.h5]")
 
-    # Load image arrays and labels
     images, labels = load_data(sys.argv[1])
 
-    # Split data into training and testing sets
+    if len(images) == 0:
+        sys.exit("Error: No images found in the specified directory.")
+
     labels = tf.keras.utils.to_categorical(labels, num_classes=NUM_CATEGORIES)
     x_train, x_test, y_train, y_test = train_test_split(
         np.array(images), np.array(labels), test_size=TEST_SIZE, random_state=42
     )
 
-    # Get a compiled neural network
     model = get_model()
-
-    # Fit model on training data
     model.fit(x_train, y_train, epochs=EPOCHS, validation_data=(x_test, y_test), verbose=1)
 
-    # Save model to file
     filename = sys.argv[2] if len(sys.argv) == 3 else 'best_model.h5'
     model.save(filename)
     print(f"Model saved to {filename}.")
 
 def load_data(data_dir):
-    """
-    Load image data from directory data_dir.
-    """
     images = []
     labels = []
     
-    # Loop through each category folder
     for category in range(NUM_CATEGORIES):
         category_dir = os.path.join(data_dir, str(category))
         
-        # Check if directory exists
         if not os.path.isdir(category_dir):
+            print(f"Warning: Directory {category_dir} does not exist.")
             continue
             
-        # Loop through each image in the category folder
         for image_file in os.listdir(category_dir):
-            image_path = os.path.join(category_dir, image_file)
-            try:
-                # Read and resize the image
-                image = cv2.imread(image_path)
-                if image is None:
-                    continue
+            if image_file.endswith('.ppm'):  # Check for .ppm files
+                image_path = os.path.join(category_dir, image_file)
+                try:
+                    image = cv2.imread(image_path)
+                    if image is None:
+                        print(f"Warning: Could not read image {image_path}. Skipping.")
+                        continue
                     
-                image = cv2.resize(image, (IMG_WIDTH, IMG_HEIGHT))
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert to RGB
-                
-                # Normalize pixel values to [0, 1]
-                image = image / 255.0
-                
-                images.append(image)
-                labels.append(category)
-            except Exception as e:
-                print(f"Error processing {image_path}: {e}")
-                continue
+                    image = cv2.resize(image, (IMG_WIDTH, IMG_HEIGHT))
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    image = image / 255.0
+                    
+                    images.append(image)
+                    labels.append(category)
+                except Exception as e:
+                    print(f"Error processing {image_path}: {e}")
+                    continue
                 
     return (images, labels)
-
+    images = []
+    labels = []
+    
+    print("Checking contents of:", data_dir)
+    print(os.listdir(data_dir))  # Print the contents of the directory
+    
+    for category in range(NUM_CATEGORIES):
+        category_dir = os.path.join(data_dir, str(category))
+        
+        if not os.path.isdir(category_dir):
+            print(f"Warning: Directory {category_dir} does not exist.")
+            continue
+            
+        for image_file in os.listdir(category_dir):
+            if image_file.endswith('.ppm'):  # Check for .ppm files
+                image_path = os.path.join(category_dir, image_file)
+                try:
+                    image = cv2.imread(image_path)
+                    if image is None:
+                        print(f"Warning: Could not read image {image_path}. Skipping.")
+                        continue
+                    
+                    image = cv2.resize(image, (IMG_WIDTH, IMG_HEIGHT))
+                    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                    image = image / 255.0
+                    
+                    images.append(image)
+                    labels.append(category)
+                except Exception as e:
+                    print(f"Error processing {image_path}: {e}")
+                    continue
+                
+    return (images, labels)
 def get_model():
-    """
-    Returns a compiled convolutional neural network model.
-    """
     model = tf.keras.models.Sequential([
-        # Convolutional layers
         tf.keras.layers.Conv2D(32, (3, 3), activation="relu", input_shape=(IMG_WIDTH, IMG_HEIGHT, 3)),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
-        
         tf.keras.layers.Conv2D(64, (3, 3), activation="relu"),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
-        
         tf.keras.layers.Conv2D(128, (3, 3), activation="relu"),
         tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
-        
-        # Flatten units
         tf.keras.layers.Flatten(),
-        
-        # Hidden layers with dropout
         tf.keras.layers.Dense(256, activation="relu"),
         tf.keras.layers.Dropout(0.5),
-        
         tf.keras.layers.Dense(128, activation="relu"),
         tf.keras.layers.Dropout(0.3),
-        
-        # Output layer
         tf.keras.layers.Dense(NUM_CATEGORIES, activation="softmax")
     ])
     
-    # Compile model
     model.compile(
         optimizer="adam",
         loss="categorical_crossentropy",
@@ -113,5 +120,5 @@ def get_model():
     
     return model
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
